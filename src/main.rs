@@ -135,10 +135,37 @@ fn execute_command_in_directory(dir: &std::path::Path, command: &[String]) {
     use std::process::{Command, Stdio};
 
     println!("{:?}:\n", dir);
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
     let command_str = command.join(" ");
-    let script = format!("zsh -ic '{}'", command_str);
 
-    let output = Command::new("sh")
+    let script = if shell.ends_with("zsh") {
+        format!(
+            r#"
+            source ~/.zshrc 2>/dev/null
+            eval "{}"
+            "#,
+            command_str.replace('"', r#"\""#)
+        )
+    } else if shell.ends_with("fish") {
+        format!(
+            r#"
+            source ~/.config/fish/config.fish 2>/dev/null
+            {}
+            "#,
+            command_str
+        )
+    } else {
+        // Assume bash-like shell
+        format!(
+            r#"
+            if [ -f ~/.bashrc ]; then . ~/.bashrc; fi
+            {}
+            "#,
+            command_str
+        )
+    };
+
+    let output = Command::new(&shell)
         .arg("-c")
         .arg(&script)
         .env("HOME", std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string()))
