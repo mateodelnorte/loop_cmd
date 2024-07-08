@@ -4,6 +4,8 @@ use walkdir::WalkDir;
 use std::fs;
 use serde::{Serialize, Deserialize};
 use regex::Regex;
+use std::process::{Command, Stdio};
+use std::io::{self, Write};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -54,14 +56,21 @@ fn main() {
 
     let config = read_looprc();
 
+    // Process child directories
     for entry in WalkDir::new(".").min_depth(1).max_depth(1) {
         let entry = entry.unwrap();
         if entry.file_type().is_dir() {
-            let dir_name = entry.file_name().to_str().unwrap();
-            
-            if should_process_directory(dir_name, &args, &config) {
-                execute_command_in_directory(&entry.path(), &args.command);
+            let dir_path = entry.path();
+            if should_process_directory(dir_path, &args, &config) {
+                execute_command_in_directory(dir_path, &args.command);
             }
+        }
+    }
+
+    // Process the current directory only if it's explicitly included
+    if let Some(ref include) = args.include {
+        if include.contains(&".".to_string()) {
+            execute_command_in_directory(std::path::Path::new("."), &args.command);
         }
     }
 }
@@ -86,9 +95,16 @@ fn read_looprc() -> LoopConfig {
     }
 }
 
-fn should_process_directory(dir_name: &str, args: &Args, config: &LoopConfig) -> bool {
+fn should_process_directory(dir_path: &std::path::Path, args: &Args, config: &LoopConfig) -> bool {
+    // Explicitly exclude the current directory
+    if dir_path == std::path::Path::new(".") {
+        return false;
+    }
+
+    let dir_name = dir_path.file_name().unwrap_or_default().to_str().unwrap();
+
     if let Some(ref include_only) = args.include_only {
-        return include_only.contains(&dir_name.to_string());
+        return include_only.contains(&dir_name.to_string()) || include_only.contains(&".".to_string());
     }
 
     if let Some(ref exclude_only) = args.exclude_only {
@@ -96,7 +112,7 @@ fn should_process_directory(dir_name: &str, args: &Args, config: &LoopConfig) ->
     }
 
     if let Some(ref include) = args.include {
-        if include.contains(&dir_name.to_string()) {
+        if include.contains(&dir_name.to_string()) || (dir_path == std::path::Path::new(".") && include.contains(&".".to_string())) {
             return true;
         }
     }
@@ -127,17 +143,13 @@ fn should_process_directory(dir_name: &str, args: &Args, config: &LoopConfig) ->
         }
     }
 
-    true
+    true // Default to processing the directory if no exclusion criteria are met
 }
 
 fn execute_command_in_directory(dir: &std::path::Path, command: &[String]) {
-    use std::io::{self, Write};
-    use std::process::{Command, Stdio};
-
-    println!("{:?}:\n", dir);
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
     let command_str = command.join(" ");
-
+    
     let script = if shell.ends_with("zsh") {
         format!(
             r#"
@@ -165,25 +177,30 @@ fn execute_command_in_directory(dir: &std::path::Path, command: &[String]) {
         )
     };
 
-    let output = Command::new(&shell)
+    println!();
+
+    let status = Command::new(&shell)
         .arg("-c")
         .arg(&script)
         .env("HOME", std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string()))
         .current_dir(dir)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
         .expect("Failed to execute command");
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    if output.status.success() {
-        print!("\x1b[32m{}\x1b[0m", stdout); // Green color for success
+    let exit_code = status.code().unwrap_or(-1);
+    let dir_name = if dir == std::path::Path::new(".") {
+        "."
     } else {
-        print!("\x1b[31mCode {}. Failed in {:?}: {}\x1b[0m", output.status.code().unwrap_or(-1), dir, stderr); // Red color for error
+        dir.file_name().unwrap_or_default().to_str().unwrap()
+    };
+
+    if status.success() {
+        println!("\x1b[32m{} ✓\x1b[0m", dir_name);
+    } else {
+        println!("\x1b[31m{} ✗: exited code {}\x1b[0m", dir_name, exit_code);
     }
 
     io::stdout().flush().unwrap();
-    io::stderr().flush().unwrap();
 }
