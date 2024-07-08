@@ -50,10 +50,10 @@ run-build:
 	./$(TARGET_DIR)/release/loop
 
 test:
-	$(CARGO) test
+	$(CARGO) test --tests
 
 test-integration:
-	$(CARGO) test --test '*'
+	$(CARGO) test --test integration_tests
 
 # Add a new target for the exec command
 exec:
