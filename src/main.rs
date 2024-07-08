@@ -43,12 +43,12 @@ struct LoopConfig {
     ignore: Option<Vec<String>>,
 }
 
-fn main() {
+fn main() -> std::process::ExitCode {
     let args = Args::parse();
 
     if args.init {
         create_looprc();
-        return;
+        return std::process::ExitCode::SUCCESS;
     }
 
     let working_dir = args.cwd.clone().unwrap_or_else(|| std::env::current_dir().unwrap());
@@ -56,22 +56,40 @@ fn main() {
 
     let config = read_looprc();
 
+    let mut first_error_code: Option<i32> = None;
+
     // Process child directories
     for entry in WalkDir::new(".").min_depth(1).max_depth(1) {
         let entry = entry.unwrap();
         if entry.file_type().is_dir() {
             let dir_path = entry.path();
             if should_process_directory(dir_path, &args, &config) {
-                execute_command_in_directory(dir_path, &args.command);
+                let exit_code = execute_command_in_directory(dir_path, &args.command);
+                if exit_code != 0 && first_error_code.is_none() {
+                    first_error_code = Some(exit_code);
+                }
             }
         }
     }
 
-    // Process the current directory only if it's explicitly included
-    if let Some(ref include) = args.include {
-        if include.contains(&".".to_string()) {
-            execute_command_in_directory(std::path::Path::new("."), &args.command);
+    // Process included directories
+    if let Some(ref include_dirs) = args.include {
+        for dir in include_dirs {
+            let dir_path = PathBuf::from(dir);
+            if dir_path.is_dir() {
+                let exit_code = execute_command_in_directory(&dir_path, &args.command);
+                if exit_code != 0 && first_error_code.is_none() {
+                    first_error_code = Some(exit_code);
+                }
+            } else {
+                eprintln!("Warning: {} is not a directory", dir);
+            }
         }
+    }
+
+    match first_error_code {
+        Some(code) => std::process::ExitCode::from(code as u8),
+        None => std::process::ExitCode::SUCCESS,
     }
 }
 
@@ -146,7 +164,7 @@ fn should_process_directory(dir_path: &std::path::Path, args: &Args, config: &Lo
     true // Default to processing the directory if no exclusion criteria are met
 }
 
-fn execute_command_in_directory(dir: &std::path::Path, command: &[String]) {
+fn execute_command_in_directory(dir: &std::path::Path, command: &[String]) -> i32 {
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
     let command_str = command.join(" ");
     
@@ -203,4 +221,6 @@ fn execute_command_in_directory(dir: &std::path::Path, command: &[String]) {
     }
 
     io::stdout().flush().unwrap();
+
+    exit_code
 }
