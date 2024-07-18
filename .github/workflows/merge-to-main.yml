@@ -54,15 +54,46 @@ jobs:
         if: steps.check_version.outputs.bumped == 'false'
         run: |
           ./bump_version.sh patch
+          cargo update --package loop_cmd
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git add Cargo.toml
+          git add Cargo.toml Cargo.lock
           git commit -m "Bump version to $(grep '^version =' Cargo.toml | sed -E 's/version = "(.*)"/\1/')"
           git push
+        shell: bash
+
+      - name: Verify version update
+        run: |
+          toml_version=$(grep '^version =' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          lock_version=$(grep '^name = "loop_cmd"' -A 2 Cargo.lock | grep 'version =' | sed -E 's/version = "(.*)"/\1/')
+          echo "Cargo.toml version: $toml_version"
+          echo "Cargo.lock version: $lock_version"
+          if [ "$toml_version" != "$lock_version" ]; then
+            echo "Error: Version mismatch between Cargo.toml and Cargo.lock"
+            exit 1
+          fi
+        shell: bash
 
       - name: Get version
         id: get_version
-        run: echo "version=$(grep '^version =' Cargo.toml | sed -E 's/version = "(.*)"/\1/')"
+        run: |
+          version=$(grep '^version =' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          echo "Version from Cargo.toml: $version"
+          if [ -z "$version" ]; then
+            echo "Error: Unable to extract version from Cargo.toml"
+            exit 1
+          fi
+          echo "version=$version" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Verify version
+        run: |
+          echo "Extracted version: ${{ steps.get_version.outputs.version }}"
+          if [ "${{ steps.get_version.outputs.version }}" = "v" ]; then
+            echo "Error: Version extraction failed. Got 'v' instead of a proper version number."
+            exit 1
+          fi
+        shell: bash
 
       - name: Check existing release
         id: check_release
@@ -76,6 +107,7 @@ jobs:
           else
             echo "release_exists=false" >> $GITHUB_OUTPUT
           fi
+        shell: bash
 
       - name: Create Release
         id: create_release
@@ -85,7 +117,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ steps.get_version.outputs.version }}
-          release_name: Release ${{ steps.get_version.outputs.version }}
+          release_name: Release v${{ steps.get_version.outputs.version }}
           draft: false
           prerelease: false
 
@@ -173,15 +205,14 @@ jobs:
           $assets = curl.exe -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" `
             "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ needs.create_release.outputs.version }}" `
             | ConvertFrom-Json | Select-Object -ExpandProperty assets | ForEach-Object { @{name=$_.name; id=$_.id} } | ConvertTo-Json -Compress
-          echo "assets<<EOF" >> $env:GITHUB_OUTPUT
-          echo "$assets" >> $env:GITHUB_OUTPUT
-          echo "EOF" >> $env:GITHUB_OUTPUT
+          echo "assets=$assets" >> $env:GITHUB_OUTPUT
         shell: pwsh
 
       - name: Delete Existing Windows (x86_64) Asset
         if: ${{ contains(fromJson(steps.get_assets.outputs.assets)[*].name, 'loop-windows-x86_64.tar.gz') }}
         run: |
-          $assets = @(${{ steps.get_assets.outputs.assets }} | ConvertFrom-Json)
+          $assetsJson = '${{ steps.get_assets.outputs.assets }}'
+          $assets = $assetsJson | ConvertFrom-Json
           $assetId = ($assets | Where-Object { $_.name -eq "loop-windows-x86_64.tar.gz" }).id
           if ($assetId) {
             curl.exe -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" `
