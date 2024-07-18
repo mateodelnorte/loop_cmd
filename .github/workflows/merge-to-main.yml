@@ -160,6 +160,48 @@ jobs:
           asset_name: loop-linux-x86_64
           asset_content_type: application/octet-stream
 
+  build_macos:
+    needs: create_release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Build for macOS (x86_64)
+        run: |
+          rustup target add x86_64-apple-darwin
+          cargo build --release --target x86_64-apple-darwin
+
+      - name: Upload macOS (x86_64) Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./target/x86_64-apple-darwin/release/loop
+          asset_name: loop-darwin-x86_64
+          asset_content_type: application/octet-stream
+
+      - name: Build for macOS (ARM64)
+        run: |
+          rustup target add aarch64-apple-darwin
+          cargo build --release --target aarch64-apple-darwin
+
+      - name: Upload macOS (ARM64) Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./target/aarch64-apple-darwin/release/loop
+          asset_name: loop-darwin-arm64
+          asset_content_type: application/octet-stream
+
   build_windows:
     needs: create_release
     runs-on: windows-latest
@@ -185,45 +227,3 @@ jobs:
           asset_path: ./target/release/loop.exe
           asset_name: loop-windows-x86_64.exe
           asset_content_type: application/vnd.microsoft.portable-executable
-
-  build_macos:
-    needs: create_release
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Build for macOS (x86_64)
-        run: |
-          rustup target add x86_64-apple-darwin
-          cargo build --release --target x86_64-apple-darwin
-
-      - name: Upload macOS (x86_64) Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./target/x86_64-apple-darwin/release/loop
-          asset_name: loop-mac-x86_64
-          asset_content_type: application/octet-stream
-
-      - name: Build for macOS (ARM64)
-        run: |
-          rustup target add aarch64-apple-darwin
-          cargo build --release --target aarch64-apple-darwin
-
-      - name: Upload macOS (ARM64) Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./target/aarch64-apple-darwin/release/loop
-          asset_name: loop-mac-arm64
-          asset_content_type: application/octet-stream

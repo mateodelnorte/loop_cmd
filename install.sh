@@ -36,6 +36,7 @@ case $OS in
         exit 1
         ;;
 esac
+echo "Detected OS: $OS, Architecture: $ARCH"
 
 # Determine latest version
 echo "Fetching latest version..."
@@ -53,13 +54,29 @@ DOWNLOAD_URL="https://github.com/$GITHUB_USER/$REPO_NAME/releases/download/$LATE
 if [ "$OS" = "windows" ]; then
     DOWNLOAD_URL="${DOWNLOAD_URL}.exe"
 fi
+echo "Download URL: $DOWNLOAD_URL"
 
 # Download and install
 echo "Downloading $BINARY_NAME..."
-curl -L -o "$BINARY_NAME" "$DOWNLOAD_URL"
+if curl -L -o "$BINARY_NAME" "$DOWNLOAD_URL"; then
+    echo "Downloaded $BINARY_NAME successfully"
+else
+    echo "Failed to download $BINARY_NAME. Please check the URL and try again."
+    exit 1
+fi
 
 if [ ! -f "$BINARY_NAME" ]; then
     echo "Failed to download ${BINARY_NAME}. Please check your internet connection and try again."
+    exit 1
+fi
+
+# Check if the downloaded file is a binary
+if file "$BINARY_NAME" | grep -q "executable"; then
+    echo "$BINARY_NAME is a valid executable"
+else
+    echo "Error: Downloaded file is not a valid executable"
+    cat "$BINARY_NAME"
+    rm "$BINARY_NAME"
     exit 1
 fi
 
