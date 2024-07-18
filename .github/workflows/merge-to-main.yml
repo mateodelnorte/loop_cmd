@@ -1,0 +1,156 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for all branches and tags
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Check for version bump
+        id: check_version
+        run: |
+          # Get the current version from Cargo.toml
+          current_version=$(grep '^version =' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          echo "Current version: $current_version"
+
+          # Get the last version before the PR
+          git checkout $(git rev-list -n 1 HEAD^)
+          previous_version=$(grep '^version =' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          echo "Previous version: $previous_version"
+
+          # Compare versions
+          if [ "$current_version" != "$previous_version" ]; then
+            echo "Version was already bumped in PR"
+            echo "::set-output name=bumped::true"
+          else
+            echo "Version was not bumped in PR"
+            echo "::set-output name=bumped::false"
+          fi
+
+          # Return to the current commit
+          git checkout -
+
+      - name: Bump version
+        if: steps.check_version.outputs.bumped == 'false'
+        run: |
+          ./bump_version.sh patch
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add Cargo.toml
+          git commit -m "Bump version to $(grep '^version =' Cargo.toml | sed -E 's/version = "(.*)"/\1/')"
+          git push
+
+      - name: Get version
+        id: get_version
+        run: echo "::set-output name=version::$(grep '^version =' Cargo.toml | sed -E 's/version = "(.*)"/\1/')"
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.get_version.outputs.version }}
+          release_name: Release ${{ steps.get_version.outputs.version }}
+          draft: false
+          prerelease: false
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Build for Linux (x86_64)
+        run: |
+          rustup target add x86_64-unknown-linux-musl
+          cargo build --release --target x86_64-unknown-linux-musl
+          tar -czf loop-linux-x86_64.tar.gz -C target/x86_64-unknown-linux-musl/release loop
+
+      - name: Build for Linux (aarch64)
+        run: |
+          rustup target add aarch64-unknown-linux-musl
+          cargo build --release --target aarch64-unknown-linux-musl
+          tar -czf loop-linux-aarch64.tar.gz -C target/aarch64-unknown-linux-musl/release loop
+
+      - name: Build for macOS (x86_64)
+        run: |
+          rustup target add x86_64-apple-darwin
+          cargo build --release --target x86_64-apple-darwin
+          tar -czf loop-mac-x86_64.tar.gz -C target/x86_64-apple-darwin/release loop
+
+      - name: Build for macOS (aarch64)
+        run: |
+          rustup target add aarch64-apple-darwin
+          cargo build --release --target aarch64-apple-darwin
+          tar -czf loop-mac-aarch64.tar.gz -C target/aarch64-apple-darwin/release loop
+
+      - name: Build for Windows (x86_64)
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+          cargo build --release --target x86_64-pc-windows-msvc
+          tar -czf loop-windows-x86_64.tar.gz -C target/x86_64-pc-windows-msvc/release loop.exe
+
+      - name: Upload Linux (x86_64) Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./loop-linux-x86_64.tar.gz
+          asset_name: loop-linux-x86_64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Linux (aarch64) Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./loop-linux-aarch64.tar.gz
+          asset_name: loop-linux-aarch64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload macOS (x86_64) Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./loop-mac-x86_64.tar.gz
+          asset_name: loop-mac-x86_64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload macOS (aarch64) Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./loop-mac-aarch64.tar.gz
+          asset_name: loop-mac-aarch64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Windows (x86_64) Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./loop-windows-x86_64.tar.gz
+          asset_name: loop-windows-x86_64.tar.gz
+          asset_content_type: application/gzip
