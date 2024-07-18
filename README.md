@@ -14,7 +14,7 @@
 You can install `loop` using the following command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mateodelnorte/loop/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/mateodelnorte/loop_cmd/main/install.sh | sh
 ```
 
 This will download and install `loop` so that it can be used as a command from your PATH.
