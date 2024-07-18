@@ -16,7 +16,7 @@ pub struct Args {
 pub fn parse_args() -> Args {
     let matches = Command::new("loop")
         .about("Loop through directories and execute a command")
-        .version("0.1.0")
+        .version(env!("CARGO_PKG_VERSION"))
         .author("Matt")
         .arg(
             Arg::new("command")
