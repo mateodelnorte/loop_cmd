@@ -44,16 +44,28 @@ echo "Latest version: $LATEST_VERSION"
 # Construct download URL
 DOWNLOAD_URL="https://github.com/$GITHUB_USER/$REPO_NAME/releases/download/$LATEST_VERSION/${BINARY_NAME}-${OS}-${ARCH}.tar.gz"
 
-# Download and extract
+# Download and install
 echo "Downloading $BINARY_NAME..."
-curl -L "$DOWNLOAD_URL" | tar xz -C /tmp
+curl -L -o "${BINARY_NAME}.tar.gz" "$DOWNLOAD_URL"
 
-# Install binary
+if [ ! -f "${BINARY_NAME}.tar.gz" ]; then
+    echo "Failed to download ${BINARY_NAME}. Please check your internet connection and try again."
+    exit 1
+fi
+
+echo "Extracting $BINARY_NAME..."
+tar -xzf "${BINARY_NAME}.tar.gz"
+
+if [ ! -f "$BINARY_NAME" ]; then
+    echo "Failed to extract $BINARY_NAME. The downloaded archive may be corrupted."
+    exit 1
+fi
+
 echo "Installing $BINARY_NAME to $INSTALL_DIR..."
-sudo mv "/tmp/$BINARY_NAME" "$INSTALL_DIR/"
+sudo mv "$BINARY_NAME" "$INSTALL_DIR"
 
-# Set permissions
-sudo chmod +x "$INSTALL_DIR/$BINARY_NAME"
+echo "Cleaning up..."
+rm "${BINARY_NAME}.tar.gz"
 
-echo "$BINARY_NAME $LATEST_VERSION has been installed to $INSTALL_DIR"
-echo "You may need to restart your terminal or source your shell configuration file to use the 'loop' command."
+echo "$BINARY_NAME has been installed successfully!"
+echo "You can now use it by running 'loop' in your terminal."
