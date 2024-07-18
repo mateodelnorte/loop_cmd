@@ -1,15 +1,16 @@
-use std::path::Path;
-use std::process::{Command, Stdio};
-use std::io::{self, Write};
-use regex::Regex;
 use crate::args::Args;
 use crate::config::LoopConfig;
+use regex::Regex;
+use std::io::{self, Write};
+use std::path::Path;
+use std::process::{Command, Stdio};
 
 pub fn should_process_directory(dir_path: &Path, args: &Args, config: &LoopConfig) -> bool {
     let dir_name = dir_path.file_name().unwrap_or_default().to_str().unwrap();
 
     if let Some(ref include_only) = args.include_only {
-        return include_only.contains(&dir_name.to_string()) || include_only.contains(&".".to_string());
+        return include_only.contains(&dir_name.to_string())
+            || include_only.contains(&".".to_string());
     }
 
     if let Some(ref exclude_only) = args.exclude_only {
@@ -52,7 +53,7 @@ pub fn should_process_directory(dir_path: &Path, args: &Args, config: &LoopConfi
 pub fn execute_command_in_directory(dir: &Path, command: &[String]) -> i32 {
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
     let command_str = command.join(" ");
-    
+
     let script = if shell.ends_with("zsh") {
         format!(
             r#"
@@ -85,7 +86,10 @@ pub fn execute_command_in_directory(dir: &Path, command: &[String]) -> i32 {
     let status = Command::new(&shell)
         .arg("-c")
         .arg(&script)
-        .env("HOME", std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string()))
+        .env(
+            "HOME",
+            std::env::var("HOME").unwrap_or_else(|_| "/home/user".to_string()),
+        )
         .current_dir(dir)
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -130,10 +134,26 @@ mod tests {
             ignore: vec![".git".to_string()],
         };
 
-        assert!(should_process_directory(&PathBuf::from("include_dir"), &args, &config));
-        assert!(!should_process_directory(&PathBuf::from("exclude_dir"), &args, &config));
-        assert!(!should_process_directory(&PathBuf::from(".git"), &args, &config));
-        assert!(should_process_directory(&PathBuf::from("normal_dir"), &args, &config));
+        assert!(should_process_directory(
+            &PathBuf::from("include_dir"),
+            &args,
+            &config
+        ));
+        assert!(!should_process_directory(
+            &PathBuf::from("exclude_dir"),
+            &args,
+            &config
+        ));
+        assert!(!should_process_directory(
+            &PathBuf::from(".git"),
+            &args,
+            &config
+        ));
+        assert!(should_process_directory(
+            &PathBuf::from("normal_dir"),
+            &args,
+            &config
+        ));
     }
 
     #[test]
@@ -154,18 +174,35 @@ mod tests {
             ignore: vec!["node_modules".to_string(), "target".to_string()],
         };
 
-        assert!(should_process_directory(&PathBuf::from("src"), &args, &config));
-        assert!(!should_process_directory(&PathBuf::from("test"), &args, &config));
-        assert!(!should_process_directory(&PathBuf::from("node_modules"), &args, &config));
-        assert!(!should_process_directory(&PathBuf::from("target"), &args, &config));
+        assert!(should_process_directory(
+            &PathBuf::from("src"),
+            &args,
+            &config
+        ));
+        assert!(!should_process_directory(
+            &PathBuf::from("test"),
+            &args,
+            &config
+        ));
+        assert!(!should_process_directory(
+            &PathBuf::from("node_modules"),
+            &args,
+            &config
+        ));
+        assert!(!should_process_directory(
+            &PathBuf::from("target"),
+            &args,
+            &config
+        ));
     }
 
     #[test]
     fn test_execute_command_in_directory() {
         let temp_dir = tempfile::tempdir().unwrap();
         let dir_path = temp_dir.path();
-        
-        let exit_code = execute_command_in_directory(dir_path, &["echo".to_string(), "test".to_string()]);
+
+        let exit_code =
+            execute_command_in_directory(dir_path, &["echo".to_string(), "test".to_string()]);
         assert_eq!(exit_code, 0);
 
         let exit_code = execute_command_in_directory(dir_path, &["false".to_string()]);

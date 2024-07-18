@@ -1,4 +1,4 @@
-use clap::{Command, Arg, ArgAction};
+use clap::{Arg, ArgAction, Command};
 
 #[derive(Debug)]
 pub struct Args {
@@ -75,17 +75,22 @@ pub fn parse_args() -> Args {
         .get_matches();
 
     Args {
-        command: matches.get_many::<String>("command")
+        command: matches
+            .get_many::<String>("command")
             .map(|v| v.cloned().collect())
             .unwrap_or_default(),
         cwd: matches.get_one::<String>("cwd").cloned(),
-        include: matches.get_many::<String>("include")
+        include: matches
+            .get_many::<String>("include")
             .map(|v| v.cloned().collect()),
-        exclude: matches.get_many::<String>("exclude")
+        exclude: matches
+            .get_many::<String>("exclude")
             .map(|v| v.cloned().collect()),
-        include_only: matches.get_many::<String>("include_only")
+        include_only: matches
+            .get_many::<String>("include_only")
             .map(|v| v.cloned().collect()),
-        exclude_only: matches.get_many::<String>("exclude_only")
+        exclude_only: matches
+            .get_many::<String>("exclude_only")
             .map(|v| v.cloned().collect()),
         include_pattern: matches.get_one::<String>("include_pattern").cloned(),
         exclude_pattern: matches.get_one::<String>("exclude_pattern").cloned(),
@@ -116,7 +121,11 @@ mod tests {
     // Helper function for testing
     fn parse_args_from(args: &[&str]) -> Args {
         let matches = Command::new("loop")
-            .arg(Arg::new("command").required_unless_present("init").num_args(1..))
+            .arg(
+                Arg::new("command")
+                    .required_unless_present("init")
+                    .num_args(1..),
+            )
             .arg(Arg::new("cwd").short('C').long("cwd"))
             .arg(Arg::new("include").short('i').long("include").num_args(1..))
             .arg(Arg::new("exclude").short('e').long("exclude").num_args(1..))
@@ -129,17 +138,22 @@ mod tests {
             .unwrap();
 
         Args {
-            command: matches.get_many::<String>("command")
+            command: matches
+                .get_many::<String>("command")
                 .map(|v| v.cloned().collect())
                 .unwrap_or_default(),
             cwd: matches.get_one::<String>("cwd").cloned(),
-            include: matches.get_many::<String>("include")
+            include: matches
+                .get_many::<String>("include")
                 .map(|v| v.cloned().collect()),
-            exclude: matches.get_many::<String>("exclude")
+            exclude: matches
+                .get_many::<String>("exclude")
                 .map(|v| v.cloned().collect()),
-            include_only: matches.get_many::<String>("include_only")
+            include_only: matches
+                .get_many::<String>("include_only")
                 .map(|v| v.cloned().collect()),
-            exclude_only: matches.get_many::<String>("exclude_only")
+            exclude_only: matches
+                .get_many::<String>("exclude_only")
                 .map(|v| v.cloned().collect()),
             include_pattern: matches.get_one::<String>("include_pattern").cloned(),
             exclude_pattern: matches.get_one::<String>("exclude_pattern").cloned(),

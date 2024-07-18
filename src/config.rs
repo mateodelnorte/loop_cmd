@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::fs;
 use serde_json;
+use std::fs;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LoopConfig {
@@ -21,7 +21,11 @@ pub fn create_looprc() {
     let file_path = ".looprc";
     fs::write(file_path, &json).unwrap();
     let full_path = env::current_dir().unwrap().join(file_path);
-    println!("Created .looprc file at {} with content: {}", full_path.display(), json);
+    println!(
+        "Created .looprc file at {} with content: {}",
+        full_path.display(),
+        json
+    );
 }
 
 pub fn read_looprc() -> LoopConfig {
@@ -33,6 +37,6 @@ pub fn read_looprc() -> LoopConfig {
         Err(err) => {
             eprintln!("Failed to read .looprc: {}", err);
             LoopConfig { ignore: vec![] }
-        },
+        }
     }
 }

@@ -1,9 +1,9 @@
 use assert_cmd::Command;
+use once_cell::sync::Lazy;
 use predicates::prelude::*;
-use tempfile::tempdir;
 use std::fs;
 use std::sync::Mutex;
-use once_cell::sync::Lazy;
+use tempfile::tempdir;
 
 // Create a global mutex
 static CURRENT_DIR_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
@@ -12,10 +12,7 @@ static CURRENT_DIR_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 fn test_init_creates_looprc() {
     let temp_dir = tempdir().unwrap();
     let mut cmd = Command::cargo_bin("loop").unwrap();
-    cmd.current_dir(&temp_dir)
-        .arg("--init")
-        .assert()
-        .success();
+    cmd.current_dir(&temp_dir).arg("--init").assert().success();
 
     assert!(temp_dir.path().join(".looprc").exists());
 }
@@ -73,10 +70,10 @@ fn test_exclude_directory() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
-    use std::fs;
     use loop_lib::config::{create_looprc, read_looprc, LoopConfig};
-    use serde_json;
+
+    use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn test_create_looprc() {
@@ -92,9 +89,18 @@ mod tests {
         let config: LoopConfig = serde_json::from_str(&content).unwrap();
 
         assert!(!config.ignore.is_empty());
-        assert!(config.ignore.contains(&".git".to_string()), "'.git' not found in ignore list");
-        assert!(config.ignore.contains(&".vagrant".to_string()), "'.vagrant' not found in ignore list");
-        assert!(config.ignore.contains(&".vscode".to_string()), "'.vscode' not found in ignore list");
+        assert!(
+            config.ignore.contains(&".git".to_string()),
+            "'.git' not found in ignore list"
+        );
+        assert!(
+            config.ignore.contains(&".vagrant".to_string()),
+            "'.vagrant' not found in ignore list"
+        );
+        assert!(
+            config.ignore.contains(&".vscode".to_string()),
+            "'.vscode' not found in ignore list"
+        );
     }
 
     #[test]
@@ -102,13 +108,13 @@ mod tests {
         let _lock = CURRENT_DIR_MUTEX.lock().unwrap();
         let temp_dir = tempdir().unwrap();
         std::env::set_current_dir(&temp_dir).unwrap();
-        
+
         let test_config = LoopConfig {
             ignore: vec!["test_dir".to_string()],
         };
         let json = serde_json::to_string_pretty(&test_config).unwrap();
         fs::write(".looprc", json).unwrap();
-        
+
         let read_config = read_looprc();
         assert_eq!(read_config.ignore, vec!["test_dir".to_string()]);
     }
@@ -118,7 +124,7 @@ mod tests {
         let _lock = CURRENT_DIR_MUTEX.lock().unwrap();
         let temp_dir = tempdir().unwrap();
         std::env::set_current_dir(&temp_dir).unwrap();
-        
+
         let config = read_looprc();
         assert!(config.ignore.is_empty());
     }

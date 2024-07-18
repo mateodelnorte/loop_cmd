@@ -12,7 +12,7 @@ LINUX_ARM_TARGET := aarch64-unknown-linux-musl
 DARWIN_ARM_TARGET := aarch64-apple-darwin
 
 # Phony targets
-.PHONY: all benchmark build build-for-mac build-for-linux build-for-windows release run run-build test test-integration
+.PHONY: all benchmark build build-for-mac build-for-linux build-for-windows release run run-build test test-integration lint lint-fix
 
 # Default target
 all: build
@@ -66,6 +66,15 @@ test:
 
 test-integration:
 	$(CARGO) test --test integration_tests
+
+# Linting targets
+lint:
+	$(CARGO) fmt --all -- --check
+	$(CARGO) clippy -- -D warnings
+
+lint-fix:
+	$(CARGO) fmt --all
+	$(CARGO) clippy --fix --allow-dirty -- -D warnings
 
 # Add a new target for the exec command
 exec:
