@@ -3,7 +3,7 @@
 set -e
 
 GITHUB_USER="mateodelnorte"
-REPO_NAME="loop"
+REPO_NAME="loop_cmd"
 BINARY_NAME="loop"
 INSTALL_DIR="/usr/local/bin"
 
