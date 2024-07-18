@@ -1,0 +1,275 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  create_release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.get_upload_url.outputs.upload_url }}
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Check for version bump
+        id: check_version
+        run: |
+          # Get the current version from Cargo.toml
+          current_version=$(grep '^version =' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          echo "Current version: $current_version"
+
+          # Get the last version before the PR
+          git checkout $(git rev-list -n 1 HEAD^)
+          previous_version=$(grep '^version =' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          echo "Previous version: $previous_version"
+
+          # Compare versions
+          if [ "$current_version" != "$previous_version" ]; then
+            echo "Version was already bumped in PR"
+            echo "::set-output name=bumped::true"
+          else
+            echo "Version was not bumped in PR"
+            echo "::set-output name=bumped::false"
+          fi
+
+          # Return to the current commit
+          git checkout -
+
+      - name: Bump version
+        if: steps.check_version.outputs.bumped == 'false'
+        run: |
+          ./bump_version.sh patch
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add Cargo.toml
+          git commit -m "Bump version to $(grep '^version =' Cargo.toml | sed -E 's/version = "(.*)"/\1/')"
+          git push
+
+      - name: Get version
+        id: get_version
+        run: echo "version=$(grep '^version =' Cargo.toml | sed -E 's/version = "(.*)"/\1/')"
+
+      - name: Check existing release
+        id: check_release
+        run: |
+          release_id=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ steps.get_version.outputs.version }}" \
+            | jq -r '.id')
+          if [ "$release_id" != "null" ]; then
+            echo "release_id=$release_id" >> $GITHUB_OUTPUT
+            echo "release_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "release_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        id: create_release
+        if: steps.check_release.outputs.release_exists == 'false'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.get_version.outputs.version }}
+          release_name: Release ${{ steps.get_version.outputs.version }}
+          draft: false
+          prerelease: false
+
+      - name: Get Release Upload URL
+        id: get_upload_url
+        run: |
+          if [ "${{ steps.check_release.outputs.release_exists }}" == "true" ]; then
+            upload_url=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/${{ steps.check_release.outputs.release_id }}" \
+              | jq -r '.upload_url')
+          else
+            upload_url="${{ steps.create_release.outputs.upload_url }}"
+          fi
+          echo "upload_url=$upload_url" >> $GITHUB_OUTPUT
+
+  build_linux:
+    needs: create_release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Build for Linux (x86_64)
+        run: |
+          rustup target add x86_64-unknown-linux-musl
+          cargo build --release --target x86_64-unknown-linux-musl
+          tar -czf loop-linux-x86_64.tar.gz -C target/x86_64-unknown-linux-musl/release loop
+
+      - name: Get Release Assets
+        id: get_assets
+        run: |
+          assets=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ needs.create_release.outputs.version }}" \
+            | jq -c '.assets[] | {name: .name, id: .id}' | jq -s -c | jq -r '@json')
+          echo "assets<<EOF" >> $GITHUB_OUTPUT
+          echo "$assets" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Delete Existing Linux (x86_64) Asset
+        if: ${{ contains(fromJson(steps.get_assets.outputs.assets)[*].name, 'loop-linux-x86_64.tar.gz') }}
+        run: |
+          asset_id=$(echo '${{ steps.get_assets.outputs.assets }}' | jq -r '.[] | select(.name == "loop-linux-x86_64.tar.gz") | .id')
+          if [ ! -z "$asset_id" ]; then
+            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id"
+          fi
+        shell: bash
+
+      - name: Upload Linux (x86_64) Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./loop-linux-x86_64.tar.gz
+          asset_name: loop-linux-x86_64.tar.gz
+          asset_content_type: application/gzip
+
+  build_windows:
+    needs: create_release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Build for Windows (x86_64)
+        run: |
+          cargo build --release
+          tar -czf loop-windows-x86_64.tar.gz -C target/release loop.exe
+
+      - name: Get Release Assets
+        id: get_assets
+        run: |
+          $assets = curl.exe -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" `
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ needs.create_release.outputs.version }}" `
+            | ConvertFrom-Json | Select-Object -ExpandProperty assets | ForEach-Object { @{name=$_.name; id=$_.id} } | ConvertTo-Json -Compress
+          echo "assets<<EOF" >> $env:GITHUB_OUTPUT
+          echo "$assets" >> $env:GITHUB_OUTPUT
+          echo "EOF" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Delete Existing Windows (x86_64) Asset
+        if: ${{ contains(fromJson(steps.get_assets.outputs.assets)[*].name, 'loop-windows-x86_64.tar.gz') }}
+        run: |
+          $assets = @(${{ steps.get_assets.outputs.assets }} | ConvertFrom-Json)
+          $assetId = ($assets | Where-Object { $_.name -eq "loop-windows-x86_64.tar.gz" }).id
+          if ($assetId) {
+            curl.exe -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" `
+              "https://api.github.com/repos/${{ github.repository }}/releases/assets/$assetId"
+          }
+        shell: pwsh
+
+      - name: Upload Windows (x86_64) Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./loop-windows-x86_64.tar.gz
+          asset_name: loop-windows-x86_64.tar.gz
+          asset_content_type: application/gzip
+
+  build_macos:
+    needs: create_release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Build for macOS (x86_64)
+        run: |
+          rustup target add x86_64-apple-darwin
+          cargo build --release --target x86_64-apple-darwin
+          tar -czf loop-mac-x86_64.tar.gz -C target/x86_64-apple-darwin/release loop
+
+      - name: Build for macOS (ARM64)
+        run: |
+          rustup target add aarch64-apple-darwin
+          cargo build --release --target aarch64-apple-darwin
+          tar -czf loop-mac-arm64.tar.gz -C target/aarch64-apple-darwin/release loop
+
+      - name: Get Release Assets
+        id: get_assets
+        run: |
+          assets=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ needs.create_release.outputs.version }}" \
+            | jq -c '.assets[] | {name: .name, id: .id}' | jq -s -c | jq -r '@json')
+          echo "assets<<EOF" >> $GITHUB_OUTPUT
+          echo "$assets" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Delete Existing macOS (x86_64) Asset
+        if: ${{ contains(fromJson(steps.get_assets.outputs.assets)[*].name, 'loop-mac-x86_64.tar.gz') }}
+        run: |
+          asset_id=$(echo '${{ steps.get_assets.outputs.assets }}' | jq -r '.[] | select(.name == "loop-mac-x86_64.tar.gz") | .id')
+          if [ ! -z "$asset_id" ]; then
+            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id"
+          fi
+        shell: bash
+
+      - name: Upload macOS (x86_64) Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./loop-mac-x86_64.tar.gz
+          asset_name: loop-mac-x86_64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Delete Existing macOS (ARM64) Asset
+        if: ${{ contains(fromJson(steps.get_assets.outputs.assets)[*].name, 'loop-mac-arm64.tar.gz') }}
+        run: |
+          asset_id=$(echo '${{ steps.get_assets.outputs.assets }}' | jq -r '.[] | select(.name == "loop-mac-arm64.tar.gz") | .id')
+          if [ ! -z "$asset_id" ]; then
+            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id"
+          fi
+        shell: bash
+
+      - name: Upload macOS (ARM64) Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ./loop-mac-arm64.tar.gz
+          asset_name: loop-mac-arm64.tar.gz
+          asset_content_type: application/gzip
