@@ -149,7 +149,9 @@ jobs:
         run: |
           rustup target add x86_64-unknown-linux-musl
           cargo build --release --target x86_64-unknown-linux-musl
-          tar -czf loop-linux-x86_64.tar.gz -C target/x86_64-unknown-linux-musl/release loop
+          mkdir -p loop-linux-x86_64
+          cp target/x86_64-unknown-linux-musl/release/loop loop-linux-x86_64/
+          tar -czvf loop-linux-x86_64.tar.gz loop-linux-x86_64
 
       - name: Get Release Assets
         id: get_assets
@@ -197,7 +199,9 @@ jobs:
       - name: Build for Windows (x86_64)
         run: |
           cargo build --release
-          tar -czf loop-windows-x86_64.tar.gz -C target/release loop.exe
+          mkdir -p loop-windows-x86_64
+          cp target/release/loop.exe loop-windows-x86_64/
+          tar -czvf loop-windows-x86_64.tar.gz loop-windows-x86_64
 
       - name: Get Release Assets
         id: get_assets
@@ -246,13 +250,17 @@ jobs:
         run: |
           rustup target add x86_64-apple-darwin
           cargo build --release --target x86_64-apple-darwin
-          tar -czf loop-mac-x86_64.tar.gz -C target/x86_64-apple-darwin/release loop
+          mkdir -p loop-mac-x86_64
+          cp target/x86_64-apple-darwin/release/loop loop-mac-x86_64/
+          tar -czvf loop-mac-x86_64.tar.gz loop-mac-x86_64
 
       - name: Build for macOS (ARM64)
         run: |
           rustup target add aarch64-apple-darwin
           cargo build --release --target aarch64-apple-darwin
-          tar -czf loop-mac-arm64.tar.gz -C target/aarch64-apple-darwin/release loop
+          mkdir -p loop-mac-arm64
+          cp target/aarch64-apple-darwin/release/loop loop-mac-arm64/
+          tar -czvf loop-mac-arm64.tar.gz loop-mac-arm64
 
       - name: Get Release Assets
         id: get_assets

@@ -54,18 +54,19 @@ if [ ! -f "${BINARY_NAME}.tar.gz" ]; then
 fi
 
 echo "Extracting $BINARY_NAME..."
-tar -xzf "${BINARY_NAME}.tar.gz"
+mkdir -p tmp_extract
+tar -xzvf "${BINARY_NAME}.tar.gz" -C tmp_extract
 
-if [ ! -f "$BINARY_NAME" ]; then
+if [ ! -f "tmp_extract/${BINARY_NAME}-${OS}-${ARCH}/${BINARY_NAME}" ]; then
     echo "Failed to extract $BINARY_NAME. The downloaded archive may be corrupted."
     exit 1
 fi
 
 echo "Installing $BINARY_NAME to $INSTALL_DIR..."
-sudo mv "$BINARY_NAME" "$INSTALL_DIR"
+sudo mv "tmp_extract/${BINARY_NAME}-${OS}-${ARCH}/${BINARY_NAME}" "$INSTALL_DIR"
 
 echo "Cleaning up..."
-rm "${BINARY_NAME}.tar.gz"
+rm -rf "${BINARY_NAME}.tar.gz" tmp_extract
 
 echo "$BINARY_NAME has been installed successfully!"
 echo "You can now use it by running 'loop' in your terminal."
