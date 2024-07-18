@@ -34,8 +34,8 @@ pub fn read_looprc() -> LoopConfig {
             eprintln!("Failed to parse .looprc: {}", err);
             LoopConfig { ignore: vec![] }
         }),
-        Err(err) => {
-            eprintln!("Failed to read .looprc: {}", err);
+        Err(_err) => {
+            // Fail silently and continue
             LoopConfig { ignore: vec![] }
         }
     }
