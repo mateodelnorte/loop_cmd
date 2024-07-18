@@ -149,30 +149,6 @@ jobs:
         run: |
           rustup target add x86_64-unknown-linux-musl
           cargo build --release --target x86_64-unknown-linux-musl
-          mkdir -p loop-linux-x86_64
-          cp target/x86_64-unknown-linux-musl/release/loop loop-linux-x86_64/
-          tar -czvf loop-linux-x86_64.tar.gz loop-linux-x86_64
-
-      - name: Get Release Assets
-        id: get_assets
-        run: |
-          assets=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ needs.create_release.outputs.version }}" \
-            | jq -c '.assets[] | {name: .name, id: .id}' | jq -s -c | jq -r '@json')
-          echo "assets<<EOF" >> $GITHUB_OUTPUT
-          echo "$assets" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - name: Delete Existing Linux (x86_64) Asset
-        if: ${{ contains(fromJson(steps.get_assets.outputs.assets)[*].name, 'loop-linux-x86_64.tar.gz') }}
-        run: |
-          asset_id=$(echo '${{ steps.get_assets.outputs.assets }}' | jq -r '.[] | select(.name == "loop-linux-x86_64.tar.gz") | .id')
-          if [ ! -z "$asset_id" ]; then
-            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id"
-          fi
-        shell: bash
 
       - name: Upload Linux (x86_64) Release Asset
         uses: actions/upload-release-asset@v1
@@ -180,9 +156,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./loop-linux-x86_64.tar.gz
-          asset_name: loop-linux-x86_64.tar.gz
-          asset_content_type: application/gzip
+          asset_path: ./target/x86_64-unknown-linux-musl/release/loop
+          asset_name: loop-linux-x86_64
+          asset_content_type: application/octet-stream
 
   build_windows:
     needs: create_release
@@ -199,30 +175,6 @@ jobs:
       - name: Build for Windows (x86_64)
         run: |
           cargo build --release
-          mkdir -p loop-windows-x86_64
-          cp target/release/loop.exe loop-windows-x86_64/
-          tar -czvf loop-windows-x86_64.tar.gz loop-windows-x86_64
-
-      - name: Get Release Assets
-        id: get_assets
-        run: |
-          $assets = curl.exe -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" `
-            "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ needs.create_release.outputs.version }}" `
-            | ConvertFrom-Json | Select-Object -ExpandProperty assets | ForEach-Object { @{name=$_.name; id=$_.id} } | ConvertTo-Json -Compress
-          echo "assets=$assets" >> $env:GITHUB_OUTPUT
-        shell: pwsh
-
-      - name: Delete Existing Windows (x86_64) Asset
-        if: ${{ contains(fromJson(steps.get_assets.outputs.assets)[*].name, 'loop-windows-x86_64.tar.gz') }}
-        run: |
-          $assetsJson = '${{ steps.get_assets.outputs.assets }}'
-          $assets = $assetsJson | ConvertFrom-Json
-          $assetId = ($assets | Where-Object { $_.name -eq "loop-windows-x86_64.tar.gz" }).id
-          if ($assetId) {
-            curl.exe -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" `
-              "https://api.github.com/repos/${{ github.repository }}/releases/assets/$assetId"
-          }
-        shell: pwsh
 
       - name: Upload Windows (x86_64) Release Asset
         uses: actions/upload-release-asset@v1
@@ -230,9 +182,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./loop-windows-x86_64.tar.gz
-          asset_name: loop-windows-x86_64.tar.gz
-          asset_content_type: application/gzip
+          asset_path: ./target/release/loop.exe
+          asset_name: loop-windows-x86_64.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
 
   build_macos:
     needs: create_release
@@ -250,38 +202,6 @@ jobs:
         run: |
           rustup target add x86_64-apple-darwin
           cargo build --release --target x86_64-apple-darwin
-          mkdir -p loop-mac-x86_64
-          cp target/x86_64-apple-darwin/release/loop loop-mac-x86_64/
-          tar -czvf loop-mac-x86_64.tar.gz loop-mac-x86_64
-
-      - name: Build for macOS (ARM64)
-        run: |
-          rustup target add aarch64-apple-darwin
-          cargo build --release --target aarch64-apple-darwin
-          mkdir -p loop-mac-arm64
-          cp target/aarch64-apple-darwin/release/loop loop-mac-arm64/
-          tar -czvf loop-mac-arm64.tar.gz loop-mac-arm64
-
-      - name: Get Release Assets
-        id: get_assets
-        run: |
-          assets=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ needs.create_release.outputs.version }}" \
-            | jq -c '.assets[] | {name: .name, id: .id}' | jq -s -c | jq -r '@json')
-          echo "assets<<EOF" >> $GITHUB_OUTPUT
-          echo "$assets" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - name: Delete Existing macOS (x86_64) Asset
-        if: ${{ contains(fromJson(steps.get_assets.outputs.assets)[*].name, 'loop-mac-x86_64.tar.gz') }}
-        run: |
-          asset_id=$(echo '${{ steps.get_assets.outputs.assets }}' | jq -r '.[] | select(.name == "loop-mac-x86_64.tar.gz") | .id')
-          if [ ! -z "$asset_id" ]; then
-            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id"
-          fi
-        shell: bash
 
       - name: Upload macOS (x86_64) Release Asset
         uses: actions/upload-release-asset@v1
@@ -289,19 +209,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./loop-mac-x86_64.tar.gz
-          asset_name: loop-mac-x86_64.tar.gz
-          asset_content_type: application/gzip
+          asset_path: ./target/x86_64-apple-darwin/release/loop
+          asset_name: loop-mac-x86_64
+          asset_content_type: application/octet-stream
 
-      - name: Delete Existing macOS (ARM64) Asset
-        if: ${{ contains(fromJson(steps.get_assets.outputs.assets)[*].name, 'loop-mac-arm64.tar.gz') }}
+      - name: Build for macOS (ARM64)
         run: |
-          asset_id=$(echo '${{ steps.get_assets.outputs.assets }}' | jq -r '.[] | select(.name == "loop-mac-arm64.tar.gz") | .id')
-          if [ ! -z "$asset_id" ]; then
-            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/assets/$asset_id"
-          fi
-        shell: bash
+          rustup target add aarch64-apple-darwin
+          cargo build --release --target aarch64-apple-darwin
 
       - name: Upload macOS (ARM64) Release Asset
         uses: actions/upload-release-asset@v1
@@ -309,6 +224,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./loop-mac-arm64.tar.gz
-          asset_name: loop-mac-arm64.tar.gz
-          asset_content_type: application/gzip
+          asset_path: ./target/aarch64-apple-darwin/release/loop
+          asset_name: loop-mac-arm64
+          asset_content_type: application/octet-stream
