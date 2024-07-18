@@ -8,24 +8,31 @@ BINARY_NAME="loop"
 INSTALL_DIR="/usr/local/bin"
 
 # Detect OS and architecture
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+if [ "$OSTYPE" = "msys" ] || [ "$OSTYPE" = "win32" ]; then
+    OS="windows"
+else
+    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+fi
 ARCH=$(uname -m)
 
 # Map architecture names
-case $ARCH in
-    x86_64)
+case $OS in
+    linux)
         ARCH="x86_64"
         ;;
-    arm64|aarch64)
-        if [ "$OS" = "darwin" ]; then
+    darwin)
+        if [ "$ARCH" = "arm64" ]; then
             ARCH="arm64"
         else
-            echo "ARM is not supported on Linux in this release."
-            exit 1
+            ARCH="x86_64"
         fi
         ;;
+    windows)
+        ARCH="x86_64"
+        BINARY_NAME="loop.exe"
+        ;;
     *)
-        echo "Unsupported architecture: $ARCH"
+        echo "Unsupported operating system: $OS"
         exit 1
         ;;
 esac
@@ -42,31 +49,28 @@ fi
 echo "Latest version: $LATEST_VERSION"
 
 # Construct download URL
-DOWNLOAD_URL="https://github.com/$GITHUB_USER/$REPO_NAME/releases/download/$LATEST_VERSION/${BINARY_NAME}-${OS}-${ARCH}.tar.gz"
+DOWNLOAD_URL="https://github.com/$GITHUB_USER/$REPO_NAME/releases/download/$LATEST_VERSION/${BINARY_NAME}-${OS}-${ARCH}"
+if [ "$OS" = "windows" ]; then
+    DOWNLOAD_URL="${DOWNLOAD_URL}.exe"
+fi
 
 # Download and install
 echo "Downloading $BINARY_NAME..."
-curl -L -o "${BINARY_NAME}.tar.gz" "$DOWNLOAD_URL"
+curl -L -o "$BINARY_NAME" "$DOWNLOAD_URL"
 
-if [ ! -f "${BINARY_NAME}.tar.gz" ]; then
+if [ ! -f "$BINARY_NAME" ]; then
     echo "Failed to download ${BINARY_NAME}. Please check your internet connection and try again."
     exit 1
 fi
 
-echo "Extracting $BINARY_NAME..."
-mkdir -p tmp_extract
-tar -xzvf "${BINARY_NAME}.tar.gz" -C tmp_extract
-
-if [ ! -f "tmp_extract/${BINARY_NAME}-${OS}-${ARCH}/${BINARY_NAME}" ]; then
-    echo "Failed to extract $BINARY_NAME. The downloaded archive may be corrupted."
-    exit 1
-fi
-
 echo "Installing $BINARY_NAME to $INSTALL_DIR..."
-sudo mv "tmp_extract/${BINARY_NAME}-${OS}-${ARCH}/${BINARY_NAME}" "$INSTALL_DIR"
-
-echo "Cleaning up..."
-rm -rf "${BINARY_NAME}.tar.gz" tmp_extract
+if [ "$OS" = "windows" ]; then
+    mkdir -p "$INSTALL_DIR"
+    mv "$BINARY_NAME" "$INSTALL_DIR"
+else
+    chmod +x "$BINARY_NAME"
+    sudo mv "$BINARY_NAME" "$INSTALL_DIR"
+fi
 
 echo "$BINARY_NAME has been installed successfully!"
 echo "You can now use it by running 'loop' in your terminal."
