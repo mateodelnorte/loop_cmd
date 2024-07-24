@@ -2,6 +2,11 @@
 name = "loop_cmd"
 version = "0.1.15"
 edition = "2021"
+description = "A command-line tool for executing commands across multiple directories"
+license = "MIT"
+documentation = "https://github.com/mateodelnorte/loop_cmd"
+homepage = "https://github.com/mateodelnorte/loop_cmd"
+repository = "https://github.com/mateodelnorte/loop_cmd"
 
 [lib]
 name = "loop_lib"
