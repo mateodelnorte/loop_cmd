@@ -1,7 +1,12 @@
 use clap::{Arg, ArgAction, Command};
 
-#[derive(Debug)]
-pub struct Args {
+/// Represents the command-line options for the loop command.
+///
+/// This struct holds all the possible options that can be passed to the loop command,
+/// including the command to execute, directories to include or exclude, and patterns
+/// for filtering directories.
+#[derive(Debug, Clone)]
+pub struct LoopOptions {
     pub command: Vec<String>,
     pub cwd: Option<String>,
     pub include: Option<Vec<String>>,
@@ -13,7 +18,11 @@ pub struct Args {
     pub init: bool,
 }
 
-pub fn parse_args() -> Args {
+/// Parses command-line arguments and returns a LoopOptions struct.
+///
+/// This function uses the clap library to define and parse command-line arguments,
+/// converting them into a LoopOptions struct for easy use in the rest of the program.
+pub fn parse_args() -> LoopOptions {
     let matches = Command::new("loop")
         .about("Loop through directories and execute a command")
         .version(env!("CARGO_PKG_VERSION"))
@@ -74,7 +83,7 @@ pub fn parse_args() -> Args {
         )
         .get_matches();
 
-    Args {
+    LoopOptions {
         command: matches
             .get_many::<String>("command")
             .map(|v| v.cloned().collect())
@@ -119,7 +128,7 @@ mod tests {
     }
 
     // Helper function for testing
-    fn parse_args_from(args: &[&str]) -> Args {
+    fn parse_args_from(args: &[&str]) -> LoopOptions {
         let matches = Command::new("loop")
             .arg(
                 Arg::new("command")
@@ -137,7 +146,7 @@ mod tests {
             .try_get_matches_from(args)
             .unwrap();
 
-        Args {
+        LoopOptions {
             command: matches
                 .get_many::<String>("command")
                 .map(|v| v.cloned().collect())

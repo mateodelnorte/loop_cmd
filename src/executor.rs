@@ -1,42 +1,50 @@
-use crate::args::Args;
+use crate::args::LoopOptions;
 use crate::config::LoopConfig;
 use regex::Regex;
 use std::io::{self, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-pub fn should_process_directory(dir_path: &Path, args: &Args, config: &LoopConfig) -> bool {
+/// Determines if a directory should be processed based on the provided options and configuration.
+///
+/// This function takes a directory path, options, and configuration, and returns a boolean
+/// indicating whether the directory should be processed.
+pub fn should_process_directory(
+    dir_path: &Path,
+    options: &LoopOptions,
+    config: &LoopConfig,
+) -> bool {
     let dir_name = dir_path.file_name().unwrap_or_default().to_str().unwrap();
 
-    if let Some(ref include_only) = args.include_only {
+    if let Some(ref include_only) = options.include_only {
         return include_only.contains(&dir_name.to_string())
             || include_only.contains(&".".to_string());
     }
 
-    if let Some(ref exclude_only) = args.exclude_only {
+    if let Some(ref exclude_only) = options.exclude_only {
         return !exclude_only.contains(&dir_name.to_string());
     }
 
-    if let Some(ref include) = args.include {
+    if let Some(ref include) = options.include {
         if include.contains(&dir_name.to_string()) {
             return true;
         }
     }
 
-    if let Some(ref exclude) = args.exclude {
+    if let Some(ref exclude) = options.exclude {
         if exclude.contains(&dir_name.to_string()) {
             return false;
         }
     }
 
-    if let Some(ref include_pattern) = args.include_pattern {
+    if let Some(ref include_pattern) = options.include_pattern {
         let re = Regex::new(include_pattern).unwrap();
         if !re.is_match(dir_name) {
             return false;
         }
     }
 
-    if let Some(ref exclude_pattern) = args.exclude_pattern {
+    if let Some(ref exclude_pattern) = options.exclude_pattern {
         let re = Regex::new(exclude_pattern).unwrap();
         if re.is_match(dir_name) {
             return false;
@@ -50,6 +58,11 @@ pub fn should_process_directory(dir_path: &Path, args: &Args, config: &LoopConfi
     true
 }
 
+/// Executes the specified command in the given directory.
+///
+/// This function runs the provided command in the specified directory, handling
+/// different shell configurations and providing appropriate output based on the
+/// command's success or failure.
 pub fn execute_command_in_directory(dir: &Path, command: &[String]) -> i32 {
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
     let command_str = command.join(" ");
@@ -118,7 +131,7 @@ mod tests {
 
     #[test]
     fn test_should_process_directory() {
-        let args = Args {
+        let args = LoopOptions {
             command: vec!["test".to_string()],
             cwd: None,
             include: Some(vec!["include_dir".to_string()]),
@@ -158,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_should_process_directory_with_patterns() {
-        let args = Args {
+        let args = LoopOptions {
             command: vec!["test".to_string()],
             cwd: None,
             include: None,
