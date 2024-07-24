@@ -64,8 +64,11 @@ run-build:
 test:
 	$(CARGO) test --tests
 
-test-integration:
-	$(CARGO) test --test integration_tests
+test-command-integration:
+	$(CARGO) test --test command_integration_tests
+
+test-library-integration:
+	$(CARGO) test --test library_integration_tests
 
 # Linting targets
 lint:
