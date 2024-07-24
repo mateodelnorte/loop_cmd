@@ -1,6 +1,6 @@
 # loop / loop_cmd
 
-`loop` is a powerful command-line tool that allows you to execute commands in multiple directories simultaneously. It's designed to simplify batch operations across multiple projects or subdirectories, making it an essential tool for developers managing complex project structures.
+`loop` is a simple, but powerful command-line tool that allows you to execute commands in multiple directories simultaneously. It's designed to simplify batch operations across multiple projects or subdirectories, making it an essential tool for developers managing complex project structures.
 
 ## Features
 
