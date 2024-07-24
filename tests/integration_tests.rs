@@ -93,14 +93,6 @@ mod tests {
             config.ignore.contains(&".git".to_string()),
             "'.git' not found in ignore list"
         );
-        assert!(
-            config.ignore.contains(&".vagrant".to_string()),
-            "'.vagrant' not found in ignore list"
-        );
-        assert!(
-            config.ignore.contains(&".vscode".to_string()),
-            "'.vscode' not found in ignore list"
-        );
     }
 
     #[test]

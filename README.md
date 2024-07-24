@@ -72,10 +72,7 @@ The above will create a `.looprc` file in your current directory similar to the 
 ```json
 {
   "ignore": [
-    ".git",
-    ".vagrant",
-    ".vscode",
-    "target"
+    ".git"
   ]
 }
 ```

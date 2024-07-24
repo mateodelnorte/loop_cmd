@@ -11,11 +11,7 @@ pub fn create_looprc() {
     use std::env;
 
     let config = LoopConfig {
-        ignore: vec![
-            ".git".to_string(),
-            ".vagrant".to_string(),
-            ".vscode".to_string(),
-        ],
+        ignore: vec![".git".to_string()],
     };
     let json = serde_json::to_string_pretty(&config).unwrap();
     let file_path = ".looprc";
