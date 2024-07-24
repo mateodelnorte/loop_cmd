@@ -1,6 +1,6 @@
 [package]
 name = "loop_cmd"
-version = "0.1.15"
+version = "0.1.16"
 edition = "2021"
 description = "A command-line tool for executing commands across multiple directories"
 license = "MIT"
