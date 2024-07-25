@@ -159,7 +159,7 @@ jobs:
           echo "upload_url=$upload_url" >> $GITHUB_OUTPUT
   build_linux:
     needs: create_release
-    if: steps.check_version_and_changes.outputs.bumped == 'true'
+    if: ${{ steps.check_version_and_changes.outputs.bumped == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -189,7 +189,7 @@ jobs:
 
   build_macos:
     needs: create_release
-    if: steps.check_version_and_changes.outputs.bumped == 'true'
+    if: ${{ steps.check_version_and_changes.outputs.bumped == 'true' }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
@@ -234,7 +234,7 @@ jobs:
 
   build_windows:
     needs: create_release
-    if: steps.check_version_and_changes.outputs.bumped == 'true'
+    if: ${{ steps.check_version_and_changes.outputs.bumped == 'true' }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
