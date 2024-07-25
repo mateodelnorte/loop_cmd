@@ -115,6 +115,7 @@ jobs:
         shell: bash
 
       - name: Publish to Crates.io
+        if: steps.check_version_and_changes.outputs.bumped == 'true'
         run: |
           cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
         shell: bash
