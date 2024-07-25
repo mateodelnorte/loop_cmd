@@ -14,6 +14,7 @@ jobs:
     outputs:
       upload_url: ${{ steps.get_upload_url.outputs.upload_url }}
       version: ${{ steps.get_version.outputs.version }}
+      bumped: ${{ steps.check_version_and_changes.outputs.bumped }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -157,9 +158,10 @@ jobs:
             upload_url="${{ steps.create_release.outputs.upload_url }}"
           fi
           echo "upload_url=$upload_url" >> $GITHUB_OUTPUT
+
   build_linux:
     needs: create_release
-    if: ${{ steps.check_version_and_changes.outputs.bumped == 'true' }}
+    if: ${{ needs.create_release.outputs.bumped == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -189,7 +191,7 @@ jobs:
 
   build_macos:
     needs: create_release
-    if: ${{ steps.check_version_and_changes.outputs.bumped == 'true' }}
+    if: ${{ needs.create_release.outputs.bumped == 'true' }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
@@ -234,7 +236,7 @@ jobs:
 
   build_windows:
     needs: create_release
-    if: ${{ steps.check_version_and_changes.outputs.bumped == 'true' }}
+    if: ${{ needs.create_release.outputs.bumped == 'true' }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
