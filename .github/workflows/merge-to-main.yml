@@ -26,32 +26,51 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: Check for version bump
-        id: check_version
+      - name: Check for version bump and code changes
+        id: check_version_and_changes
         run: |
           # Get the current version from Cargo.toml
           current_version=$(grep '^version =' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
           echo "Current version: $current_version"
 
-          # Get the last version before the PR
-          git checkout $(git rev-list -n 1 HEAD^)
-          previous_version=$(grep '^version =' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
-          echo "Previous version: $previous_version"
+          # Find the previous version commit
+          previous_version_commit=$(git log -1 --before="${{ github.event.before }}" -G "version = " --format=format:%H Cargo.toml)
 
-          # Compare versions
-          if [ "$current_version" != "$previous_version" ]; then
-            echo "Version was already bumped in PR"
-            echo "::set-output name=bumped::true"
-          else
-            echo "Version was not bumped in PR"
-            echo "::set-output name=bumped::false"
+          if [ -z "$previous_version_commit" ]; then
+            echo "No previous version change found, using initial commit"
+            previous_version_commit=$(git rev-list --max-parents=0 HEAD)
           fi
 
-          # Return to the current commit
-          git checkout -
+          # Get the previous version
+          previous_version=$(git show $previous_version_commit:Cargo.toml | grep '^version =' | sed -E 's/version = "(.*)"/\1/')
+          echo "Previous version: $previous_version"
+
+          # Check for changes in ./src or Cargo.toml since previous version change
+          if git diff --name-only $previous_version_commit ${{ github.sha }} | grep -qE '^(src/|Cargo\.toml)'; then
+            echo "Changes detected in ./src or Cargo.toml since previous version"
+            changes_detected="true"
+          else
+            echo "No changes detected in ./src or Cargo.toml since previous version"
+            changes_detected="false"
+          fi
+
+          # Check if version was manually bumped
+          manual_bump_detected="false"
+          if [ "$current_version" != "$previous_version" ]; then
+            manual_bump_detected="true"
+          fi
+
+          # Compare versions and set outputs
+          if [ "$current_version" != "$previous_version" ] && [ "$changes_detected" == "true" ] && [ "$manual_bump_detected" == "false" ]; then
+            echo "Version was changed and relevant changes were detected, and no manual bump was found"
+            echo "bumped=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version was not changed, no relevant changes were detected, or version was manually bumped"
+            echo "bumped=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Bump version
-        if: steps.check_version.outputs.bumped == 'false'
+        if: steps.check_version_and_changes.outputs.bumped == 'true'
         run: |
           ./bump_version.sh patch
           cargo update --package loop_cmd
@@ -93,6 +112,11 @@ jobs:
             echo "Error: Version extraction failed. Got 'v' instead of a proper version number."
             exit 1
           fi
+        shell: bash
+
+      - name: Publish to Crates.io
+        run: |
+          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
         shell: bash
 
       - name: Check existing release
